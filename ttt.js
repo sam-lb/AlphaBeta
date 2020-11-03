@@ -20,8 +20,6 @@ class Board {
 			[0, 4, 8], [2, 4, 6],
 		];
 		this.reset();
-		
-		this.AIMove = [];
 	}
 	
 	reset() {
@@ -29,58 +27,72 @@ class Board {
 		this.turn = 1;
 	}
 	
-	generateChildren(boardState, maximizing) {
-		const toSet = (maximizing)?1:2;
+	generateChildren(boardState, player) {
 		const childStates = [];
 		for (let i=0; i<boardState.length; i++) {
 			if (boardState[i] === 0) {
 				let child = boardState.slice();
-				child[i] = toSet;
+				child[i] = player;
 				childStates.push(child);
 			}
 		}
 		return childStates;
 	}
 	
+	chooseMove(boardState) {
+		let bestVal = -Infinity, bestMove = null, currentVal;
+		for (let childState of this.generateChildren(boardState, 2)) {
+			currentVal = this.minimax(childState, this.getDepth(childState), -Infinity, Infinity, false);
+			if (currentVal > bestVal) {
+				bestVal = currentVal;
+				bestMove = childState;
+			}
+		}
+		this.board = bestMove;
+	}
+	
 	minimax(boardState, depth, alpha, beta, maximizing) {
-		const stat = this.staticEval(boardState);
-		if (depth === 0 || stat === 3) { return stat; }
+		if (this.checkWinner(boardState) !== null) { return this.staticEval(boardState); }
 		
 		if (maximizing) {
 			let value = -Infinity, childState;
-			for (childState of this.generateChildren(boardState, true)) {
+			for (childState of this.generateChildren(boardState, 2)) {
 				value = max(value, this.minimax(childState, depth-1, alpha, beta, false));
 				alpha = max(alpha, value);
 				if (alpha >= beta) break;
 			}
-			this.AIMove = childState;
 			return value;
 		} else {
 			let value = Infinity, childState;
-			for (childState of this.generateChildren(boardState, false)) {
+			for (childState of this.generateChildren(boardState, 1)) {
 				value = min(value, this.minimax(childState, depth-1, alpha, beta, true));
 				beta = min(beta, value);
 				if (beta <= alpha) break;
 			}
-			this.AIMove = childState;
 			return value;
 		}
 	}
 	
 	staticEval(boardState) {
 		const winner = this.checkWinner(boardState);
+		const depth = this.getDepth(boardState);
+		let value;
+		
 		if (winner === 1) {
-			return 0; // lose
+			value = -10; // lose
 		} else if (winner === 2) {
-			return 100; // win
+			value = 10 + depth; // win
+		} else if (winner === 3) {
+			value = 0; // tie
 		}
-		return 50; // tie
+		return value;
 	}
 	
-	getDepth() {
+	getDepth(boardState=null) {
+		if (boardState === null) boardState = this.board;
 		let count = 0;
-		for (let i=0; i<this.board.length; i++) {
-			if (board[i] === 0) count++;
+		for (let i=0; i<boardState.length; i++) {
+			if (boardState[i] === 0) count++;
 		}
 		return count;
 	}
@@ -114,6 +126,22 @@ class Board {
 		}
 	}
 	
+	print(boardState=null) {
+		if (boardState === null) boardState = this.board;
+		let string = "";
+		for (let i=0; i<boardState.length; i++) {
+			if (boardState[i] === 0) {
+				string += "  ";
+			} else if (boardState[i] === 1) {
+				string += "X ";
+			} else {
+				string += "O ";
+			}
+			if ((i+1)%3===0) string += "\n";
+		}
+		console.log(string);
+	}
+	
 	draw() {
 		push();
 		strokeWeight(5);
@@ -145,8 +173,7 @@ class Board {
 			text("X's turn", 200, 105);
 		} else if (this.turn === 2) {
 			text("O's turn", 200, 105);
-			this.minimax(this.board, this.getDepth(), -Infinity, Infinity, true);
-			this.board = this.AIMove.slice();
+			this.chooseMove(this.board);
 			this.turn = 1;
 			this.endGame(this.checkWinner());
 		} else if (this.turn === 3) {
